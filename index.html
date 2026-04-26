@@ -54,6 +54,20 @@
   .filter label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-mute); }
   .filter select { appearance: none; border: 1px solid var(--line-strong); background: var(--bg-card) url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path d='M1 1l4 4 4-4' stroke='%231a1814' stroke-width='1.2' fill='none' stroke-linecap='round'/></svg>") no-repeat right 12px center; padding: 9px 32px 9px 12px; font-family: inherit; font-size: 14px; color: var(--ink); border-radius: var(--radius); cursor: pointer; }
   .filter select:hover { border-color: var(--ink); }
+  .filter input[type="text"] {
+    appearance: none;
+    border: 1px solid var(--line-strong);
+    background: var(--bg-card);
+    padding: 9px 12px;
+    font-family: inherit;
+    font-size: 14px;
+    color: var(--ink);
+    border-radius: var(--radius);
+    width: 100%;
+    transition: border-color .15s;
+  }
+  .filter input[type="text"]:hover { border-color: var(--ink); }
+  .filter input[type="text"]:focus { outline: 2px solid var(--accent); outline-offset: 1px; border-color: var(--accent); }
 
   /* Filtro bloqueado por URL param */
   .filter.locked label::after {
@@ -269,7 +283,11 @@
       <div class="filter" id="wrap-red"><label for="f-red">Red</label><select id="f-red"><option value="__all__">Todas</option></select></div>
       <div class="filter" id="wrap-calendario"><label for="f-calendario">Calendario</label><select id="f-calendario"><option value="__all__">Todos</option></select></div>
       <div class="filter" id="wrap-mentor"><label for="f-mentor">Mentor</label><select id="f-mentor"><option value="__all__">Todos</option></select></div>
-      <div class="filter" id="wrap-colegio"><label for="f-colegio">Colegio</label><select id="f-colegio"><option value="__all__">Todos</option></select></div>
+      <div class="filter" id="wrap-colegio">
+        <label for="f-colegio">Colegio</label>
+        <input type="text" id="f-colegio" list="list-colegios" placeholder="Escribí para buscar…" autocomplete="off" />
+        <datalist id="list-colegios"></datalist>
+      </div>
       <div class="filter-stats">
         <div class="stat"><div class="num" id="kpi-colegios">—</div><div class="lbl">Colegios</div></div>
         <div class="stat"><div class="num" id="kpi-estudiantes">—</div><div class="lbl">Estudiantes</div></div>
@@ -566,17 +584,19 @@ function boot() {
   }
 
   // Re-render en cambio de filtros libres
-  [selPais, selOp, selRed, selCalendario, selMentor, selColegio].forEach(s => {
+  [selPais, selOp, selRed, selCalendario, selMentor].forEach(s => {
     if (!s.disabled) s.addEventListener('change', render);
   });
 
-  // Cuando cambia cualquier filtro que no sea colegio, repoblar el dropdown de colegios
+  // Cuando cambia cualquier filtro que no sea colegio, repoblar el datalist
   [selPais, selOp, selRed, selCalendario, selMentor].forEach(s => {
     if (!s.disabled) s.addEventListener('change', () => repoblarColegios());
   });
 
-  // Comentario de colegio
-  selColegio.addEventListener('change', renderComentario);
+  // Input de colegio — re-render y comentario al escribir/seleccionar
+  const inputColegio = document.getElementById('f-colegio');
+  inputColegio.addEventListener('input', () => { render(); renderComentario(); });
+  inputColegio.addEventListener('change', () => { render(); renderComentario(); });
 
   // Sort handlers — tabla mentores
   document.querySelectorAll('#tbl-mentores th[data-sort]').forEach(th => {
@@ -611,14 +631,14 @@ function getFilteredRows() {
   const rd = document.getElementById('f-red').value;
   const ca = document.getElementById('f-calendario').value;
   const m  = document.getElementById('f-mentor').value;
-  const c  = document.getElementById('f-colegio').value;
+  const c  = document.getElementById('f-colegio').value.trim();
   return RAW.rows.filter(r =>
     (p  === '__all__' || r.pais       === p)  &&
     (om === '__all__' || r.opMode     === om) &&
     (rd === '__all__' || r.red        === rd) &&
     (ca === '__all__' || r.calendario === ca) &&
     (m  === '__all__' || r.mentor     === m)  &&
-    (c  === '__all__' || r.colegio    === c)
+    (!c                || r.colegio   === c)
   );
 }
 
@@ -637,17 +657,18 @@ function render() {
 }
 
 function repoblarColegios() {
-  const sel = document.getElementById('f-colegio');
-  // Guardamos el valor actual para intentar mantenerlo si sigue siendo válido
-  const prev = sel.value;
-  // Vaciamos y ponemos la opción por defecto
-  sel.innerHTML = '<option value="__all__">Todos</option>';
-  // Obtenemos las filas que pasan todos los filtros excepto colegio
+  const input   = document.getElementById('f-colegio');
+  const datalist = document.getElementById('list-colegios');
+  const prev = input.value.trim();
+
+  datalist.innerHTML = '';
+
   const p  = document.getElementById('f-pais').value;
   const om = document.getElementById('f-opmode').value;
   const rd = document.getElementById('f-red').value;
   const ca = document.getElementById('f-calendario').value;
   const m  = document.getElementById('f-mentor').value;
+
   const colegiosVisibles = uniqSorted(
     RAW.rows
       .filter(r =>
@@ -660,26 +681,30 @@ function repoblarColegios() {
       .map(r => r.colegio)
       .filter(c => c !== 'Sin nombre')
   );
-  colegiosVisibles.forEach(c => sel.appendChild(opt(c)));
-  // Restaurar selección si sigue siendo válida
-  if (prev !== '__all__' && colegiosVisibles.includes(prev)) {
-    sel.value = prev;
-  } else {
-    sel.value = '__all__';
-    renderComentario(); // ocultar comentario si el colegio ya no aplica
+
+  colegiosVisibles.forEach(c => {
+    const o = document.createElement('option');
+    o.value = c;
+    datalist.appendChild(o);
+  });
+
+  // Si el colegio previo ya no está en la lista, limpiar
+  if (prev && !colegiosVisibles.includes(prev)) {
+    input.value = '';
+    renderComentario();
   }
 }
 
 function renderComentario() {
-  const val = document.getElementById('f-colegio').value;
+  const val = document.getElementById('f-colegio').value.trim();
   const box = document.getElementById('comentario-box');
 
-  if (val === '__all__') {
+  if (!val) {
     box.classList.add('hidden');
     return;
   }
 
-  // Buscar solo dentro de las filas actualmente filtradas
+  // Solo mostrar si el valor coincide exactamente con un colegio de las filas filtradas
   const rows = getFilteredRows();
   const row = rows.find(r => r.colegio === val);
   const comentario = row && row.comentarios ? row.comentarios.trim() : '';
