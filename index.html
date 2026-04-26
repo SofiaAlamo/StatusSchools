@@ -267,6 +267,7 @@
       <div class="filter" id="wrap-pais"><label for="f-pais">País</label><select id="f-pais"><option value="__all__">Todos</option></select></div>
       <div class="filter" id="wrap-opmode"><label for="f-opmode">Operation Mode</label><select id="f-opmode"><option value="__all__">Todos</option></select></div>
       <div class="filter" id="wrap-red"><label for="f-red">Red</label><select id="f-red"><option value="__all__">Todas</option></select></div>
+      <div class="filter" id="wrap-calendario"><label for="f-calendario">Calendario</label><select id="f-calendario"><option value="__all__">Todos</option></select></div>
       <div class="filter" id="wrap-mentor"><label for="f-mentor">Mentor</label><select id="f-mentor"><option value="__all__">Todos</option></select></div>
       <div class="filter" id="wrap-colegio"><label for="f-colegio">Colegio</label><select id="f-colegio"><option value="__all__">Todos</option></select></div>
       <div class="filter-stats">
@@ -407,6 +408,7 @@ function transform(csvRows) {
     pais:         find('País', 'Pais'),
     opMode:       find('Operation mode', 'Operation Mode'),
     red:          find('Red'),
+    calendario:   find('Calendario'),
     semaforo:     find('Semáforo', 'Semaforo'),
     vitalidad:    find('Vitalidad digital', 'Vitalidad Digital'),
     comunicacion: find('Comunicación', 'Comunicacion', 'Tipo de Comunicación'),
@@ -430,6 +432,7 @@ function transform(csvRows) {
       pais: pais || 'Sin dato',
       opMode: opMode || 'Sin dato',
       red: clean(r[cols.red]) || 'Sin red',
+      calendario: clean(r[cols.calendario]) || 'Sin calendario',
       semaforo: normalizeSemaforo(r[cols.semaforo]),
       vitalidad: parsePct(r[cols.vitalidad]),
       tipoComunicacion: clean(r[cols.comunicacion]) || 'Sin dato',
@@ -448,7 +451,8 @@ function transform(csvRows) {
     rows,
     paises:   uniqSorted(rows.map(r => r.pais)),
     opModes:  uniqSorted(rows.map(r => r.opMode)),
-    redes:    uniqSorted(rows.map(r => r.red)),
+    redes:      uniqSorted(rows.map(r => r.red)),
+    calendarios: uniqSorted(rows.map(r => r.calendario)),
     mentores: uniqSorted(rows.map(r => r.mentor).filter(m => m !== 'Sin asignar')),
     colegios: uniqSorted(rows.map(r => r.colegio).filter(c => c !== 'Sin nombre')),
     generatedAt: new Date().toISOString()
@@ -504,23 +508,26 @@ function boot() {
   // ── Leer parámetros de URL ──────────────────────────────
   const qp = new URLSearchParams(window.location.search);
   const LOCKED = {
-    pais:   qp.get('pais')   || null,   // ?pais=Argentina
-    opmode: qp.get('opmode') || null,   // ?opmode=Santillana
-    red:    qp.get('red')    || null,   // ?red=Compartir
-    mentor: qp.get('mentor') || null,   // ?mentor=Georgina+Rampinini
+    pais:       qp.get('pais')       || null,
+    opmode:     qp.get('opmode')     || null,
+    red:        qp.get('red')        || null,
+    calendario: qp.get('calendario') || null,
+    mentor:     qp.get('mentor')     || null,
   };
   const hasLock = Object.values(LOCKED).some(v => v !== null);
 
   // ── Poblar y configurar selectores ─────────────────────
   const selPais    = document.getElementById('f-pais');
   const selOp      = document.getElementById('f-opmode');
-  const selRed     = document.getElementById('f-red');
-  const selMentor  = document.getElementById('f-mentor');
-  const selColegio = document.getElementById('f-colegio');
+  const selRed       = document.getElementById('f-red');
+  const selCalendario= document.getElementById('f-calendario');
+  const selMentor    = document.getElementById('f-mentor');
+  const selColegio   = document.getElementById('f-colegio');
 
   RAW.paises.forEach(p => selPais.appendChild(opt(p)));
   RAW.opModes.forEach(o => selOp.appendChild(opt(o)));
   RAW.redes.forEach(r => selRed.appendChild(opt(r)));
+  RAW.calendarios.forEach(c => selCalendario.appendChild(opt(c)));
   RAW.mentores.forEach(m => selMentor.appendChild(opt(m)));
   RAW.colegios.forEach(c => selColegio.appendChild(opt(c)));
 
@@ -539,25 +546,27 @@ function boot() {
     sel.disabled = true;
   };
 
-  lockFilter(selPais,   document.getElementById('wrap-pais'),   LOCKED.pais);
-  lockFilter(selOp,     document.getElementById('wrap-opmode'), LOCKED.opmode);
-  lockFilter(selRed,    document.getElementById('wrap-red'),    LOCKED.red);
-  lockFilter(selMentor, document.getElementById('wrap-mentor'), LOCKED.mentor);
+  lockFilter(selPais,       document.getElementById('wrap-pais'),       LOCKED.pais);
+  lockFilter(selOp,         document.getElementById('wrap-opmode'),     LOCKED.opmode);
+  lockFilter(selRed,        document.getElementById('wrap-red'),        LOCKED.red);
+  lockFilter(selCalendario, document.getElementById('wrap-calendario'), LOCKED.calendario);
+  lockFilter(selMentor,     document.getElementById('wrap-mentor'),     LOCKED.mentor);
 
   // Badge de vista bloqueada
   if (hasLock) {
     const labels = [];
-    if (LOCKED.opmode) labels.push(LOCKED.opmode);
-    if (LOCKED.pais)   labels.push(LOCKED.pais);
-    if (LOCKED.red)    labels.push('Red: ' + LOCKED.red);
-    if (LOCKED.mentor) labels.push('Mentor: ' + LOCKED.mentor);
+    if (LOCKED.opmode)     labels.push(LOCKED.opmode);
+    if (LOCKED.pais)       labels.push(LOCKED.pais);
+    if (LOCKED.red)        labels.push('Red: ' + LOCKED.red);
+    if (LOCKED.calendario) labels.push('Calendario: ' + LOCKED.calendario);
+    if (LOCKED.mentor)     labels.push('Mentor: ' + LOCKED.mentor);
     const badge = document.getElementById('vista-badge');
     badge.innerHTML = `<span class="badge-icon">🔍</span> Vista filtrada: <strong>${labels.join(' · ')}</strong>`;
     badge.classList.remove('hidden');
   }
 
   // Re-render en cambio de filtros libres
-  [selPais, selOp, selRed, selMentor, selColegio].forEach(s => {
+  [selPais, selOp, selRed, selCalendario, selMentor, selColegio].forEach(s => {
     if (!s.disabled) s.addEventListener('change', render);
   });
 
@@ -594,14 +603,16 @@ function getFilteredRows() {
   const p  = document.getElementById('f-pais').value;
   const om = document.getElementById('f-opmode').value;
   const rd = document.getElementById('f-red').value;
+  const ca = document.getElementById('f-calendario').value;
   const m  = document.getElementById('f-mentor').value;
   const c  = document.getElementById('f-colegio').value;
   return RAW.rows.filter(r =>
-    (p  === '__all__' || r.pais    === p)  &&
-    (om === '__all__' || r.opMode  === om) &&
-    (rd === '__all__' || r.red     === rd) &&
-    (m  === '__all__' || r.mentor  === m)  &&
-    (c  === '__all__' || r.colegio === c)
+    (p  === '__all__' || r.pais       === p)  &&
+    (om === '__all__' || r.opMode     === om) &&
+    (rd === '__all__' || r.red        === rd) &&
+    (ca === '__all__' || r.calendario === ca) &&
+    (m  === '__all__' || r.mentor     === m)  &&
+    (c  === '__all__' || r.colegio    === c)
   );
 }
 
