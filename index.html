@@ -65,11 +65,45 @@
   .ranking-table th, .ranking-table td { text-align: left; padding: 11px 12px; border-bottom: 1px solid var(--line); font-size: 13.5px; }
   .ranking-table th { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-mute); font-weight: 600; cursor: pointer; user-select: none; white-space: nowrap; }
   .ranking-table th.num, .ranking-table td.num { text-align: right; }
+  .ranking-table th.center, .ranking-table td.center { text-align: center; }
   .ranking-table th .arrow { display: inline-block; width: 10px; color: var(--ink-mute); opacity: 0.4; margin-left: 4px; }
   .ranking-table th.sorted .arrow { opacity: 1; color: var(--accent); }
   .ranking-table tbody tr:hover { background: var(--bg); }
   .ranking-table tbody tr:last-child td { border-bottom: none; }
   .rank-num { display: inline-block; width: 24px; color: var(--ink-mute); font-family: var(--serif); font-style: italic; }
+
+  .sem-dot {
+    display: inline-block;
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    vertical-align: middle;
+  }
+  .sem-dot.verde    { background: var(--verde); }
+  .sem-dot.amarillo { background: var(--amarillo); }
+  .sem-dot.rojo     { background: var(--rojo); }
+  .sem-dot.sin_dato { background: var(--gris); }
+
+  .vitalidad-cell {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    justify-content: flex-end;
+    width: 100%;
+  }
+  .vitalidad-bar {
+    width: 50px; height: 4px;
+    background: var(--line);
+    border-radius: 2px;
+    overflow: hidden;
+    position: relative;
+  }
+  .vitalidad-bar::after {
+    content: '';
+    display: block;
+    height: 100%;
+    background: var(--accent);
+    width: var(--w, 0%);
+  }
 
   .state { text-align: center; padding: 80px 20px; color: var(--ink-soft); }
   .state h3 { font-family: var(--serif); font-weight: 400; font-size: 22px; margin: 0 0 8px; }
@@ -113,6 +147,8 @@
     <section class="filters">
       <div class="filter"><label for="f-pais">País</label><select id="f-pais"><option value="__all__">Todos</option></select></div>
       <div class="filter"><label for="f-opmode">Operation Mode</label><select id="f-opmode"><option value="__all__">Todos</option></select></div>
+      <div class="filter"><label for="f-mentor">Mentor</label><select id="f-mentor"><option value="__all__">Todos</option></select></div>
+      <div class="filter"><label for="f-colegio">Colegio</label><select id="f-colegio"><option value="__all__">Todos</option></select></div>
       <div class="filter-stats">
         <div class="stat"><div class="num" id="kpi-colegios">—</div><div class="lbl">Colegios</div></div>
         <div class="stat"><div class="num" id="kpi-estudiantes">—</div><div class="lbl">Estudiantes</div></div>
@@ -123,8 +159,8 @@
     <div class="grid">
       <article class="card span-6"><h2>Semáforo por Operation Mode</h2><div class="subtitle">Distribución porcentual del estado</div><div class="chart-wrap"><canvas id="chart-sem-opmode"></canvas></div><div class="legend" id="legend-sem"></div></article>
       <article class="card span-6"><h2>Semáforo por País</h2><div class="subtitle">Distribución porcentual del estado</div><div class="chart-wrap"><canvas id="chart-sem-pais"></canvas></div></article>
-      <article class="card span-8"><h2>Vitalidad Digital por País</h2><div class="subtitle">Promedio del % de vitalidad</div><div class="chart-wrap"><canvas id="chart-vitalidad"></canvas></div></article>
-      <article class="card span-4"><h2>Tipo de Comunicación</h2><div class="subtitle">Distribución de modalidades</div><div class="chart-wrap"><canvas id="chart-comunicacion"></canvas></div></article>
+      <article class="card span-6"><h2>Vitalidad Digital por País</h2><div class="subtitle">Promedio del % de vitalidad por país</div><div class="chart-wrap"><canvas id="chart-vitalidad"></canvas></div></article>
+      <article class="card span-6"><h2>Tipo de Comunicación</h2><div class="subtitle">Cantidad de colegios por modalidad</div><div class="chart-wrap"><canvas id="chart-comunicacion"></canvas></div></article>
       <article class="card span-12"><h2>Rutas por Operation Mode × País</h2><div class="subtitle">Suma de rutas totales por intersección</div><div id="heat-rutas"></div></article>
       <article class="card span-6"><h2>Estudiantes por Operation Mode × País</h2><div class="subtitle">Total de alumnos</div><div id="heat-estudiantes"></div></article>
       <article class="card span-6"><h2>Docentes en PLD por Operation Mode × País</h2><div class="subtitle">Total de docentes</div><div id="heat-docentes"></div></article>
@@ -141,17 +177,43 @@
           <tbody></tbody>
         </table></div>
       </article>
+
+      <article class="card span-12">
+        <h2>Detalle por Colegio</h2>
+        <div class="subtitle">Click en cualquier columna para ordenar</div>
+        <div style="overflow-x:auto"><table class="ranking-table" id="tbl-colegios">
+          <thead><tr>
+            <th data-sort="colegio">Colegio <span class="arrow">↕</span></th>
+            <th data-sort="pais">País <span class="arrow">↕</span></th>
+            <th data-sort="opMode">Operation Mode <span class="arrow">↕</span></th>
+            <th data-sort="mentor">Mentor <span class="arrow">↕</span></th>
+            <th class="center" data-sort="semaforo">Semáforo <span class="arrow">↕</span></th>
+            <th class="num" data-sort="estudiantes">Estudiantes <span class="arrow">↕</span></th>
+            <th class="num" data-sort="docentesPLD">Docentes PLD <span class="arrow">↕</span></th>
+            <th class="num" data-sort="rutasTotales">Rutas <span class="arrow">↕</span></th>
+            <th class="num" data-sort="vitalidad">Vitalidad <span class="arrow">↕</span></th>
+            <th data-sort="tipoComunicacion">Comunicación <span class="arrow">↕</span></th>
+          </tr></thead>
+          <tbody></tbody>
+        </table></div>
+      </article>
     </div>
   </main>
 </div>
 
 <script>
 /* =========================================================
-   PEGÁ ACÁ LA URL QUE TE DIO "PUBLICAR EN LA WEB" (CSV)
-   Tiene que terminar en "output=csv".
-   ========================================================= */
-const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSPFRKVvwUioC_7rKCblIMz7Cu7qvQpQI8LJM982dThQkT_hLqaJgwU2Js8OhEZag4aJ3_5GCfvzSwd/pub?gid=735296945&single=true&output=csv'
+   ⚠️ PEGÁ TU URL DEL CSV ENTRE LAS COMILLAS DE ABAJO ⚠️
 
+   - Reemplazá TODO lo que está entre las comillas simples '...'
+   - NO borres las comillas ' al inicio y al final
+   - NO borres el punto y coma ; del final
+   - La URL debe empezar con https:// y terminar con output=csv
+
+   Ejemplo de cómo debe quedar:
+   const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vXXX.../pub?gid=0&single=true&output=csv';
+   ========================================================= */
+const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSPFRKVvwUioC_7rKCblIMz7Cu7qvQpQI8LJM982dThQkT_hLqaJgwU2Js8OhEZag4aJ3_5GCfvzSwd/pub?gid=735296945&single=true&output=csv';
 /* ========================================================= */
 
 const COLORS = {
@@ -163,6 +225,7 @@ const SEM_LABELS = { verde: 'Verde', amarillo: 'Amarillo', rojo: 'Rojo', sin_dat
 let RAW = null;
 let CHARTS = {};
 let SORT_STATE = { col: 'estudiantes', dir: 'desc' };
+let SORT_STATE_COL = { col: 'estudiantes', dir: 'desc' };
 
 document.addEventListener('DOMContentLoaded', init);
 
@@ -252,8 +315,10 @@ function transform(csvRows) {
 
   return {
     rows,
-    paises: uniqSorted(rows.map(r => r.pais)),
-    opModes: uniqSorted(rows.map(r => r.opMode)),
+    paises:   uniqSorted(rows.map(r => r.pais)),
+    opModes:  uniqSorted(rows.map(r => r.opMode)),
+    mentores: uniqSorted(rows.map(r => r.mentor).filter(m => m !== 'Sin asignar')),
+    colegios: uniqSorted(rows.map(r => r.colegio).filter(c => c !== 'Sin nombre')),
     generatedAt: new Date().toISOString()
   };
 }
@@ -285,7 +350,7 @@ function parseNum(v) {
 }
 
 function uniqSorted(arr) {
-  return [...new Set(arr.filter(x => x && x !== 'Sin dato'))].sort((a, b) => a.localeCompare(b, 'es'));
+  return [...new Set(arr.filter(x => x))].sort((a, b) => a.localeCompare(b, 'es'));
 }
 
 function showError(msg) {
@@ -304,19 +369,38 @@ function boot() {
   document.getElementById('meta-updated').textContent =
     'Actualizado ' + d.toLocaleString('es-AR', { dateStyle: 'medium', timeStyle: 'short' });
 
-  const selPais = document.getElementById('f-pais');
-  const selOp   = document.getElementById('f-opmode');
+  // Poblar filtros
+  const selPais    = document.getElementById('f-pais');
+  const selOp      = document.getElementById('f-opmode');
+  const selMentor  = document.getElementById('f-mentor');
+  const selColegio = document.getElementById('f-colegio');
+
   RAW.paises.forEach(p => selPais.appendChild(opt(p)));
   RAW.opModes.forEach(o => selOp.appendChild(opt(o)));
-  selPais.addEventListener('change', render);
-  selOp.addEventListener('change', render);
+  RAW.mentores.forEach(m => selMentor.appendChild(opt(m)));
+  RAW.colegios.forEach(c => selColegio.appendChild(opt(c)));
 
+  // Re-render en cualquier cambio de filtro
+  [selPais, selOp, selMentor, selColegio].forEach(s => s.addEventListener('change', render));
+
+  // Sort handlers — tabla mentores
   document.querySelectorAll('#tbl-mentores th[data-sort]').forEach(th => {
     th.addEventListener('click', () => {
       const col = th.dataset.sort;
       if (SORT_STATE.col === col) SORT_STATE.dir = SORT_STATE.dir === 'asc' ? 'desc' : 'asc';
       else { SORT_STATE.col = col; SORT_STATE.dir = (col === 'mentor') ? 'asc' : 'desc'; }
       renderRanking();
+    });
+  });
+
+  // Sort handlers — tabla colegios
+  document.querySelectorAll('#tbl-colegios th[data-sort]').forEach(th => {
+    th.addEventListener('click', () => {
+      const col = th.dataset.sort;
+      const textCols = ['colegio', 'pais', 'opMode', 'mentor', 'tipoComunicacion', 'semaforo'];
+      if (SORT_STATE_COL.col === col) SORT_STATE_COL.dir = SORT_STATE_COL.dir === 'asc' ? 'desc' : 'asc';
+      else { SORT_STATE_COL.col = col; SORT_STATE_COL.dir = textCols.includes(col) ? 'asc' : 'desc'; }
+      renderColegios();
     });
   });
 
@@ -328,9 +412,13 @@ function opt(v) { const o = document.createElement('option'); o.value = v; o.tex
 function getFilteredRows() {
   const p  = document.getElementById('f-pais').value;
   const om = document.getElementById('f-opmode').value;
+  const m  = document.getElementById('f-mentor').value;
+  const c  = document.getElementById('f-colegio').value;
   return RAW.rows.filter(r =>
-    (p === '__all__' || r.pais === p) &&
-    (om === '__all__' || r.opMode === om)
+    (p  === '__all__' || r.pais    === p)  &&
+    (om === '__all__' || r.opMode  === om) &&
+    (m  === '__all__' || r.mentor  === m)  &&
+    (c  === '__all__' || r.colegio === c)
   );
 }
 
@@ -345,6 +433,7 @@ function render() {
   renderHeat('heat-estudiantes', rows, 'estudiantes');
   renderHeat('heat-docentes', rows, 'docentesPLD');
   renderRanking(rows);
+  renderColegios(rows);
 }
 
 function renderKpis(rows) {
@@ -422,22 +511,31 @@ function renderVitalidad(rows) {
     if (!vs.length) return 0;
     return +(vs.reduce((a,b) => a+b, 0) / vs.length).toFixed(1);
   });
+  const palette = ['#2b3a55', '#7a6a52', '#a89376', '#c9b89a', '#5b554c', '#8a8479', '#3d4f70', '#9b8568'];
 
   destroy('chart-vitalidad');
   CHARTS['chart-vitalidad'] = new Chart(document.getElementById('chart-vitalidad'), {
-    type: 'bar',
-    data: { labels, datasets: [{ data, backgroundColor: COLORS.accent, borderRadius: 2, barThickness: 'flex', maxBarThickness: 48 }] },
+    type: 'doughnut',
+    data: {
+      labels,
+      datasets: [{
+        data,
+        backgroundColor: labels.map((_, i) => palette[i % palette.length]),
+        borderColor: '#ffffff',
+        borderWidth: 2
+      }]
+    },
     options: {
-      responsive: true, maintainAspectRatio: false,
-      scales: {
-        y: { beginAtZero: true, max: 100,
-          ticks: { callback: v => v + '%', color: COLORS.inkSoft, font: { family: 'Inter', size: 11 }},
-          grid:  { color: COLORS.line, drawBorder: false } },
-        x: { ticks: { color: COLORS.ink, font: { family: 'Inter', size: 12 }}, grid: { display: false, drawBorder: false }}
-      },
+      responsive: true, maintainAspectRatio: false, cutout: '62%',
       plugins: {
-        legend: { display: false },
-        tooltip: { backgroundColor: COLORS.ink, callbacks: { label: c => 'Vitalidad: ' + c.parsed.y + '%' }}
+        legend: {
+          position: 'bottom',
+          labels: { color: COLORS.ink, font: { family: 'Inter', size: 11 }, boxWidth: 10, padding: 10 }
+        },
+        tooltip: {
+          backgroundColor: COLORS.ink,
+          callbacks: { label: c => c.label + ': ' + c.parsed.toFixed(1) + '% promedio' }
+        }
       }
     }
   });
@@ -448,17 +546,37 @@ function renderComunicacion(rows) {
   rows.forEach(r => { counts[r.tipoComunicacion] = (counts[r.tipoComunicacion] || 0) + 1; });
   const labels = Object.keys(counts).sort((a,b) => counts[b] - counts[a]);
   const data = labels.map(l => counts[l]);
-  const palette = ['#2b3a55', '#7a6a52', '#a89376', '#c9b89a', '#5b554c', '#8a8479'];
 
   destroy('chart-comunicacion');
   CHARTS['chart-comunicacion'] = new Chart(document.getElementById('chart-comunicacion'), {
-    type: 'doughnut',
-    data: { labels, datasets: [{ data, backgroundColor: labels.map((_,i) => palette[i % palette.length]), borderColor: '#ffffff', borderWidth: 2 }] },
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        data,
+        backgroundColor: COLORS.accent,
+        borderRadius: 2,
+        barThickness: 'flex',
+        maxBarThickness: 28
+      }]
+    },
     options: {
-      responsive: true, maintainAspectRatio: false, cutout: '62%',
+      responsive: true, maintainAspectRatio: false,
+      indexAxis: 'y',
+      scales: {
+        x: { beginAtZero: true,
+          ticks: { color: COLORS.inkSoft, font: { family: 'Inter', size: 11 }, precision: 0 },
+          grid:  { color: COLORS.line, drawBorder: false }
+        },
+        y: { ticks: { color: COLORS.ink, font: { family: 'Inter', size: 12 }},
+             grid:  { display: false, drawBorder: false }}
+      },
       plugins: {
-        legend: { position: 'bottom', labels: { color: COLORS.ink, font: { family: 'Inter', size: 11 }, boxWidth: 10, padding: 10 }},
-        tooltip: { backgroundColor: COLORS.ink }
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: COLORS.ink,
+          callbacks: { label: c => c.parsed.x + ' colegio' + (c.parsed.x === 1 ? '' : 's') }
+        }
       }
     }
   });
@@ -536,6 +654,68 @@ function renderRanking(rowsArg) {
       <td class="num">${fmt(r.docentes)}</td>
     </tr>
   `).join('');
+}
+
+function renderColegios(rowsArg) {
+  const rows = rowsArg || getFilteredRows();
+  const { col, dir } = SORT_STATE_COL;
+
+  // Orden de prioridad para semáforo
+  const SEM_ORDER = { rojo: 0, amarillo: 1, sin_dato: 2, verde: 3 };
+  const textCols = ['colegio', 'pais', 'opMode', 'mentor', 'tipoComunicacion'];
+
+  const arr = [...rows].sort((a, b) => {
+    let r;
+    if (col === 'semaforo') {
+      r = (SEM_ORDER[a.semaforo] ?? 99) - (SEM_ORDER[b.semaforo] ?? 99);
+    } else if (textCols.includes(col)) {
+      r = String(a[col] || '').localeCompare(String(b[col] || ''), 'es');
+    } else if (col === 'vitalidad') {
+      // null al final
+      const va = a.vitalidad == null ? -1 : a.vitalidad;
+      const vb = b.vitalidad == null ? -1 : b.vitalidad;
+      r = va - vb;
+    } else {
+      r = (a[col] || 0) - (b[col] || 0);
+    }
+    return dir === 'asc' ? r : -r;
+  });
+
+  // Header arrows
+  document.querySelectorAll('#tbl-colegios th[data-sort]').forEach(th => {
+    const isCur = th.dataset.sort === col;
+    th.classList.toggle('sorted', isCur);
+    const arrow = th.querySelector('.arrow');
+    if (arrow) arrow.textContent = isCur ? (dir === 'asc' ? '↑' : '↓') : '↕';
+  });
+
+  const tbody = document.querySelector('#tbl-colegios tbody');
+  if (!arr.length) {
+    tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:var(--ink-mute);padding:24px">Sin colegios para los filtros seleccionados.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = arr.map(r => {
+    const vit = r.vitalidad == null ? '—'
+      : `<span class="vitalidad-cell">
+           <span class="vitalidad-bar" style="--w:${Math.min(100, Math.max(0, r.vitalidad))}%"></span>
+           ${r.vitalidad.toFixed(1)}%
+         </span>`;
+    return `
+      <tr>
+        <td>${escapeHtml(r.colegio)}</td>
+        <td>${escapeHtml(r.pais)}</td>
+        <td>${escapeHtml(r.opMode)}</td>
+        <td>${escapeHtml(r.mentor)}</td>
+        <td class="center"><span class="sem-dot ${r.semaforo}" title="${SEM_LABELS[r.semaforo]}"></span></td>
+        <td class="num">${fmt(r.estudiantes)}</td>
+        <td class="num">${fmt(r.docentesPLD)}</td>
+        <td class="num">${fmt(r.rutasTotales)}</td>
+        <td class="num">${vit}</td>
+        <td>${escapeHtml(r.tipoComunicacion)}</td>
+      </tr>
+    `;
+  }).join('');
 }
 
 function destroy(id) { if (CHARTS[id]) { CHARTS[id].destroy(); delete CHARTS[id]; } }
