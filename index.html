@@ -150,7 +150,7 @@
    PEGÁ ACÁ LA URL QUE TE DIO "PUBLICAR EN LA WEB" (CSV)
    Tiene que terminar en "output=csv".
    ========================================================= */
-const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSPFRKVvwUioC_7rKCblIMz7Cu7qvQpQI8LJM982dThQkT_hLqaJgwU2Js8OhEZag4aJ3_5GCfvzSwd/pub?gid=735296945&single=true&output=csv';
+const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSPFRKVvwUioC_7rKCblIMz7Cu7qvQpQI8LJM982dThQkT_hLqaJgwU2Js8OhEZag4aJ3_5GCfvzSwd/pub?gid=735296945&single=true&output=csv;
 
 /* ========================================================= */
 
@@ -190,13 +190,25 @@ async function init() {
 
 function transform(csvRows) {
   const sample = csvRows[0] || {};
-  const headerMap = {};
-  Object.keys(sample).forEach(h => { headerMap[normKey(h)] = h; });
+  const headers = Object.keys(sample);
+  console.log('CSV headers detectados:', headers);
 
   const find = (...candidates) => {
+    // 1) Match exacto
     for (const c of candidates) {
-      const k = normKey(c);
-      if (headerMap[k]) return headerMap[k];
+      if (headers.includes(c)) return c;
+    }
+    // 2) Match flexible excluyendo columnas que terminan en "_"
+    for (const c of candidates) {
+      const target = normKey(c);
+      const hit = headers.find(h => normKey(h) === target && !h.endsWith('_'));
+      if (hit) return hit;
+    }
+    // 3) Último recurso: cualquier match flexible
+    for (const c of candidates) {
+      const target = normKey(c);
+      const hit = headers.find(h => normKey(h) === target);
+      if (hit) return hit;
     }
     return null;
   };
@@ -207,13 +219,14 @@ function transform(csvRows) {
     semaforo:     find('Semáforo', 'Semaforo'),
     vitalidad:    find('Vitalidad digital', 'Vitalidad Digital'),
     comunicacion: find('Comunicación', 'Comunicacion', 'Tipo de Comunicación'),
-    ruta:         find('Ruta'),
     rutasTotales: find('Rutas totales', 'Cantidad de rutas'),
     estudiantes:  find('Estudiantes (alumnos)', 'Estudiantes', 'Cantidad de Estudiantes'),
     docentes:     find('Docentes en PLD', 'Cantidad de Docentes en PLD'),
     mentor:       find('Mentor'),
     colegio:      find('Nombre en PG', 'Nombre en PG del Colegio')
   };
+
+  console.log('Columnas mapeadas:', cols);
 
   const rows = [];
   csvRows.forEach(r => {
@@ -227,7 +240,6 @@ function transform(csvRows) {
       semaforo: normalizeSemaforo(r[cols.semaforo]),
       vitalidad: parsePct(r[cols.vitalidad]),
       tipoComunicacion: clean(r[cols.comunicacion]) || 'Sin dato',
-      ruta: clean(r[cols.ruta]),
       rutasTotales: parseNum(r[cols.rutasTotales]),
       estudiantes: parseNum(r[cols.estudiantes]),
       docentesPLD: parseNum(r[cols.docentes]),
@@ -235,6 +247,8 @@ function transform(csvRows) {
       colegio: clean(r[cols.colegio]) || 'Sin nombre'
     });
   });
+
+  console.log('Filas procesadas:', rows.length, '— Sample:', rows.slice(0, 2));
 
   return {
     rows,
