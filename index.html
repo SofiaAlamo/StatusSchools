@@ -105,6 +105,44 @@
     width: var(--w, 0%);
   }
 
+  .sem-stack {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+  }
+  .sem-stack-bar {
+    display: flex;
+    height: 10px;
+    width: 140px;
+    border-radius: 2px;
+    overflow: hidden;
+    background: var(--line);
+    flex-shrink: 0;
+  }
+  .sem-stack-bar > span {
+    display: block;
+    height: 100%;
+    transition: width .2s;
+  }
+  .sem-stack-bar > span.verde    { background: var(--verde); }
+  .sem-stack-bar > span.amarillo { background: var(--amarillo); }
+  .sem-stack-bar > span.rojo     { background: var(--rojo); }
+  .sem-stack-bar > span.sin_dato { background: var(--gris); }
+  .sem-stack-counts {
+    font-size: 11px;
+    color: var(--ink-mute);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+  .sem-stack-counts b {
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+  .sem-stack-counts .v { color: var(--verde); }
+  .sem-stack-counts .a { color: var(--amarillo); }
+  .sem-stack-counts .r { color: var(--rojo); }
+
   .state { text-align: center; padding: 80px 20px; color: var(--ink-soft); }
   .state h3 { font-family: var(--serif); font-weight: 400; font-size: 22px; margin: 0 0 8px; }
   .spinner { width: 32px; height: 32px; border: 2px solid var(--line); border-top-color: var(--ink); border-radius: 50%; margin: 0 auto 18px; animation: spin 0.9s linear infinite; }
@@ -159,7 +197,7 @@
     <div class="grid">
       <article class="card span-6"><h2>Semáforo por Operation Mode</h2><div class="subtitle">Distribución porcentual del estado</div><div class="chart-wrap"><canvas id="chart-sem-opmode"></canvas></div><div class="legend" id="legend-sem"></div></article>
       <article class="card span-6"><h2>Semáforo por País</h2><div class="subtitle">Distribución porcentual del estado</div><div class="chart-wrap"><canvas id="chart-sem-pais"></canvas></div></article>
-      <article class="card span-6"><h2>Vitalidad Digital por País</h2><div class="subtitle">Promedio del % de vitalidad por país</div><div class="chart-wrap"><canvas id="chart-vitalidad"></canvas></div></article>
+      <article class="card span-6"><h2>Vitalidad Digital por País</h2><div class="subtitle">Promedio por país · <span style="color:var(--rojo)">●</span> &lt;35% · <span style="color:var(--amarillo)">●</span> 35–75% · <span style="color:var(--verde)">●</span> ≥75%</div><div class="chart-wrap"><canvas id="chart-vitalidad"></canvas></div></article>
       <article class="card span-6"><h2>Tipo de Comunicación</h2><div class="subtitle">Cantidad de colegios por modalidad</div><div class="chart-wrap"><canvas id="chart-comunicacion"></canvas></div></article>
       <article class="card span-12"><h2>Rutas por Operation Mode × País</h2><div class="subtitle">Suma de rutas totales por intersección</div><div id="heat-rutas"></div></article>
       <article class="card span-6"><h2>Estudiantes por Operation Mode × País</h2><div class="subtitle">Total de alumnos</div><div id="heat-estudiantes"></div></article>
@@ -171,6 +209,7 @@
           <thead><tr>
             <th data-sort="mentor">Mentor <span class="arrow">↕</span></th>
             <th class="num" data-sort="colegios">Colegios <span class="arrow">↕</span></th>
+            <th data-sort="estado">Estado de sus colegios <span class="arrow">↕</span></th>
             <th class="num" data-sort="estudiantes">Estudiantes <span class="arrow">↕</span></th>
             <th class="num" data-sort="docentes">Docentes PLD <span class="arrow">↕</span></th>
           </tr></thead>
@@ -211,9 +250,9 @@
    - La URL debe empezar con https:// y terminar con output=csv
 
    Ejemplo de cómo debe quedar:
-   const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vXXX.../pub?gid=0&single=true&output=csv';
+   const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSPFRKVvwUioC_7rKCblIMz7Cu7qvQpQI8LJM982dThQkT_hLqaJgwU2Js8OhEZag4aJ3_5GCfvzSwd/pub?gid=735296945&single=true&output=csv';
    ========================================================= */
-const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSPFRKVvwUioC_7rKCblIMz7Cu7qvQpQI8LJM982dThQkT_hLqaJgwU2Js8OhEZag4aJ3_5GCfvzSwd/pub?gid=735296945&single=true&output=csv';
+const CSV_URL = 'PEGAR_AQUI_TU_URL';
 /* ========================================================= */
 
 const COLORS = {
@@ -511,30 +550,49 @@ function renderVitalidad(rows) {
     if (!vs.length) return 0;
     return +(vs.reduce((a,b) => a+b, 0) / vs.length).toFixed(1);
   });
-  const palette = ['#2b3a55', '#7a6a52', '#a89376', '#c9b89a', '#5b554c', '#8a8479', '#3d4f70', '#9b8568'];
+
+  // Color por umbral: <35% rojo, 35-75% amarillo, ≥75% verde
+  const colorFor = v => {
+    if (v < 35) return COLORS.rojo;
+    if (v < 75) return COLORS.amarillo;
+    return COLORS.verde;
+  };
+  const bgColors = data.map(colorFor);
 
   destroy('chart-vitalidad');
   CHARTS['chart-vitalidad'] = new Chart(document.getElementById('chart-vitalidad'), {
-    type: 'doughnut',
+    type: 'bar',
     data: {
       labels,
       datasets: [{
         data,
-        backgroundColor: labels.map((_, i) => palette[i % palette.length]),
-        borderColor: '#ffffff',
-        borderWidth: 2
+        backgroundColor: bgColors,
+        borderRadius: 2,
+        barThickness: 'flex',
+        maxBarThickness: 48
       }]
     },
     options: {
-      responsive: true, maintainAspectRatio: false, cutout: '62%',
+      responsive: true, maintainAspectRatio: false,
+      scales: {
+        y: { beginAtZero: true, max: 100,
+          ticks: { callback: v => v + '%', color: COLORS.inkSoft, font: { family: 'Inter', size: 11 }},
+          grid:  { color: COLORS.line, drawBorder: false } },
+        x: { ticks: { color: COLORS.ink, font: { family: 'Inter', size: 12 }}, grid: { display: false, drawBorder: false }}
+      },
       plugins: {
-        legend: {
-          position: 'bottom',
-          labels: { color: COLORS.ink, font: { family: 'Inter', size: 11 }, boxWidth: 10, padding: 10 }
-        },
+        legend: { display: false },
         tooltip: {
           backgroundColor: COLORS.ink,
-          callbacks: { label: c => c.label + ': ' + c.parsed.toFixed(1) + '% promedio' }
+          callbacks: {
+            label: c => 'Vitalidad: ' + c.parsed.y + '%',
+            afterLabel: c => {
+              const v = c.parsed.y;
+              if (v < 35) return 'Rango: crítico (<35%)';
+              if (v < 75) return 'Rango: medio (35–75%)';
+              return 'Rango: óptimo (≥75%)';
+            }
+          }
         }
       }
     }
@@ -621,16 +679,37 @@ function renderRanking(rowsArg) {
   const rows = rowsArg || getFilteredRows();
   const map = {};
   rows.forEach(r => {
-    if (!map[r.mentor]) map[r.mentor] = { mentor: r.mentor, colegios: 0, estudiantes: 0, docentes: 0 };
+    if (!map[r.mentor]) {
+      map[r.mentor] = {
+        mentor: r.mentor,
+        colegios: 0,
+        estudiantes: 0,
+        docentes: 0,
+        verde: 0,
+        amarillo: 0,
+        rojo: 0,
+        sin_dato: 0
+      };
+    }
     map[r.mentor].colegios++;
     map[r.mentor].estudiantes += r.estudiantes || 0;
     map[r.mentor].docentes += r.docentesPLD || 0;
+    if (map[r.mentor][r.semaforo] !== undefined) map[r.mentor][r.semaforo]++;
   });
 
   let arr = Object.values(map);
   const { col, dir } = SORT_STATE;
   arr.sort((a, b) => {
-    let r = (col === 'mentor') ? a.mentor.localeCompare(b.mentor, 'es') : (a[col] || 0) - (b[col] || 0);
+    let r;
+    if (col === 'mentor') {
+      r = a.mentor.localeCompare(b.mentor, 'es');
+    } else if (col === 'estado') {
+      // Ordena por "calidad": % verde menos % rojo (más alto = mejor estado general)
+      const score = x => x.colegios > 0 ? (x.verde - x.rojo) / x.colegios : 0;
+      r = score(a) - score(b);
+    } else {
+      r = (a[col] || 0) - (b[col] || 0);
+    }
     return dir === 'asc' ? r : -r;
   });
 
@@ -643,17 +722,39 @@ function renderRanking(rowsArg) {
 
   const tbody = document.querySelector('#tbl-mentores tbody');
   if (!arr.length) {
-    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--ink-mute);padding:24px">Sin datos.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--ink-mute);padding:24px">Sin datos.</td></tr>';
     return;
   }
   tbody.innerHTML = arr.map((r, i) => `
     <tr>
       <td><span class="rank-num">${i + 1}</span>${escapeHtml(r.mentor)}</td>
       <td class="num">${fmt(r.colegios)}</td>
+      <td>${semStackHtml(r)}</td>
       <td class="num">${fmt(r.estudiantes)}</td>
       <td class="num">${fmt(r.docentes)}</td>
     </tr>
   `).join('');
+}
+
+function semStackHtml(r) {
+  const total = r.colegios || 1;
+  const pct = k => (r[k] / total * 100).toFixed(2);
+  const seg = k => r[k] > 0 ? `<span class="${k}" style="width:${pct(k)}%" title="${SEM_LABELS[k]}: ${r[k]}"></span>` : '';
+
+  const counts = [];
+  if (r.verde)    counts.push(`<b class="v">${r.verde}</b>`);
+  if (r.amarillo) counts.push(`<b class="a">${r.amarillo}</b>`);
+  if (r.rojo)     counts.push(`<b class="r">${r.rojo}</b>`);
+  if (r.sin_dato) counts.push(`<b>${r.sin_dato}</b>`);
+
+  return `
+    <div class="sem-stack">
+      <div class="sem-stack-bar">
+        ${seg('verde')}${seg('amarillo')}${seg('rojo')}${seg('sin_dato')}
+      </div>
+      <div class="sem-stack-counts">${counts.join(' · ')}</div>
+    </div>
+  `;
 }
 
 function renderColegios(rowsArg) {
