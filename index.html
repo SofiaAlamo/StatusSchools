@@ -206,6 +206,34 @@
   .legend-swatch { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
 
   .hidden { display: none !important; }
+
+  .comentario-box {
+    background: var(--bg-card);
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--accent);
+    border-radius: var(--radius);
+    padding: 16px 20px;
+    margin-bottom: 24px;
+    animation: fadeIn .2s ease;
+  }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+  .comentario-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+    font-size: 13px;
+    color: var(--accent);
+    margin-bottom: 8px;
+  }
+  .comentario-icon { font-size: 15px; }
+  .comentario-box p {
+    margin: 0;
+    font-size: 13.5px;
+    color: var(--ink-soft);
+    line-height: 1.6;
+    white-space: pre-wrap;
+  }
 </style>
 </head>
 <body>
@@ -248,7 +276,13 @@
       </div>
     </section>
 
-    <div class="grid">
+    <div id="comentario-box" class="hidden comentario-box">
+      <div class="comentario-header">
+        <span class="comentario-icon">💬</span>
+        <span id="comentario-colegio"></span>
+      </div>
+      <p id="comentario-texto"></p>
+    </div>
       <article class="card span-6"><h2>Semáforo por Operation Mode</h2><div class="subtitle">Distribución porcentual del estado</div><div class="chart-wrap"><canvas id="chart-sem-opmode"></canvas></div><div class="legend" id="legend-sem"></div></article>
       <article class="card span-6"><h2>Semáforo por País</h2><div class="subtitle">Distribución porcentual del estado</div><div class="chart-wrap"><canvas id="chart-sem-pais"></canvas></div></article>
       <article class="card span-6"><h2>Vitalidad Digital por País</h2><div class="subtitle">Promedio por país · <span style="color:var(--rojo)">●</span> &lt;35% · <span style="color:var(--amarillo)">●</span> 35–75% · <span style="color:var(--verde)">●</span> ≥75%</div><div class="chart-wrap"><canvas id="chart-vitalidad"></canvas></div></article>
@@ -380,7 +414,8 @@ function transform(csvRows) {
     estudiantes:  find('Estudiantes (alumnos)', 'Estudiantes', 'Cantidad de Estudiantes'),
     docentes:     find('Docentes en PLD', 'Cantidad de Docentes en PLD'),
     mentor:       find('Mentor'),
-    colegio:      find('Nombre en PG', 'Nombre en PG del Colegio')
+    colegio:      find('Nombre en PG', 'Nombre en PG del Colegio'),
+    comentarios:  find('Comentarios')
   };
 
   console.log('Columnas mapeadas:', cols);
@@ -402,7 +437,8 @@ function transform(csvRows) {
       estudiantes: parseNum(r[cols.estudiantes]),
       docentesPLD: parseNum(r[cols.docentes]),
       mentor: clean(r[cols.mentor]) || 'Sin asignar',
-      colegio: clean(r[cols.colegio]) || 'Sin nombre'
+      colegio: clean(r[cols.colegio]) || 'Sin nombre',
+      comentarios: clean(r[cols.comentarios]) || ''
     });
   });
 
@@ -525,6 +561,9 @@ function boot() {
     if (!s.disabled) s.addEventListener('change', render);
   });
 
+  // Comentario de colegio
+  selColegio.addEventListener('change', renderComentario);
+
   // Sort handlers — tabla mentores
   document.querySelectorAll('#tbl-mentores th[data-sort]').forEach(th => {
     th.addEventListener('click', () => {
@@ -578,6 +617,28 @@ function render() {
   renderHeat('heat-docentes', rows, 'docentesPLD');
   renderRanking(rows);
   renderColegios(rows);
+}
+
+function renderComentario() {
+  const val = document.getElementById('f-colegio').value;
+  const box  = document.getElementById('comentario-box');
+
+  if (val === '__all__') {
+    box.classList.add('hidden');
+    return;
+  }
+
+  const row = RAW.rows.find(r => r.colegio === val);
+  const comentario = row && row.comentarios ? row.comentarios.trim() : '';
+
+  if (!comentario) {
+    box.classList.add('hidden');
+    return;
+  }
+
+  document.getElementById('comentario-colegio').textContent = val;
+  document.getElementById('comentario-texto').textContent = comentario;
+  box.classList.remove('hidden');
 }
 
 function renderKpis(rows) {
