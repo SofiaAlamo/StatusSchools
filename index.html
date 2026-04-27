@@ -221,27 +221,25 @@
 
   /* ── Gauges de vitalidad ── */
   .gauges-grid {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
-    justify-content: flex-start;
-    padding-top: 4px;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px 12px;
+    padding-top: 8px;
   }
   .gauge-item {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 2px;
-    min-width: 90px;
+    gap: 4px;
   }
-  .gauge-item svg { width: 90px; height: 56px; }
+  .gauge-item svg { width: 140px; height: 88px; }
   .gauge-label {
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 600;
     color: var(--ink);
     text-align: center;
-    max-width: 90px;
-    line-height: 1.2;
+    max-width: 140px;
+    line-height: 1.3;
   }
   .gauge-value {
     font-family: var(--serif);
@@ -396,10 +394,14 @@
       </div>
       <p id="comentario-texto"></p>
     </div>
+    <div class="grid">
+      <!-- Fila 1: Semáforos -->
       <article class="card span-6"><h2>Semáforo por Operation Mode</h2><div class="subtitle">Distribución porcentual del estado</div><div class="chart-wrap"><canvas id="chart-sem-opmode"></canvas></div><div class="legend" id="legend-sem"></div></article>
       <article class="card span-6"><h2>Semáforo por País</h2><div class="subtitle">Distribución porcentual del estado</div><div class="chart-wrap"><canvas id="chart-sem-pais"></canvas></div></article>
-      <article class="card span-6"><h2>Vitalidad Digital por País</h2><div class="subtitle">Promedio por país · <span style="color:var(--rojo)">●</span> &lt;35% · <span style="color:var(--amarillo)">●</span> 35–75% · <span style="color:var(--verde)">●</span> ≥75%</div><div id="wrap-vitalidad-gauges" class="gauges-grid"></div></article>
+      <!-- Fila 2: Vitalidad + Comunicación -->
+      <article class="card span-6"><h2>Vitalidad Digital por País</h2><div class="subtitle">Promedio por país · <span style="color:var(--rojo)">●</span> &lt;35% · <span style="color:var(--amarillo)">●</span> 35–75% · <span style="color:var(--verde)">●</span> ≥75%</div><div class="chart-wrap"><canvas id="chart-vitalidad"></canvas></div></article>
       <article class="card span-6"><h2>Tipo de Comunicación</h2><div class="subtitle">Cantidad de colegios por modalidad</div><div class="chart-wrap"><canvas id="chart-comunicacion"></canvas></div></article>
+      <!-- Heatmaps -->
       <article class="card span-12"><h2>Rutas por Operation Mode × País</h2><div class="subtitle">Suma de rutas totales por intersección</div><div id="heat-rutas"></div></article>
       <article class="card span-6"><h2>Estudiantes por Operation Mode × País</h2><div class="subtitle">Total de alumnos</div><div id="heat-estudiantes"></div></article>
       <article class="card span-6"><h2>Docentes en PLD por Operation Mode × País</h2><div class="subtitle">Total de docentes</div><div id="heat-docentes"></div></article>
@@ -909,18 +911,55 @@ function drawSemLegend(id) {
 function renderVitalidad(rows) {
   const groups = groupBy(rows, 'pais');
   const labels = Object.keys(groups).sort();
-  const container = document.getElementById('wrap-vitalidad-gauges');
+  const data = labels.map(l => {
+    const vs = groups[l].map(r => r.vitalidad).filter(v => v !== null);
+    if (!vs.length) return 0;
+    return +(vs.reduce((a,b) => a+b, 0) / vs.length).toFixed(1);
+  });
 
-  if (!labels.length) {
-    container.innerHTML = '<div style="color:var(--ink-mute);font-size:13px;padding:20px 0">Sin datos.</div>';
-    return;
-  }
+  const colorFor = v => v < 35 ? COLORS.rojo : v < 75 ? COLORS.amarillo : COLORS.verde;
 
-  container.innerHTML = labels.map(pais => {
-    const vs = groups[pais].map(r => r.vitalidad).filter(v => v !== null);
-    const val = vs.length ? vs.reduce((a,b) => a+b,0) / vs.length : 0;
-    return gaugeHTML(pais, val);
-  }).join('');
+  destroy('chart-vitalidad');
+  CHARTS['chart-vitalidad'] = new Chart(document.getElementById('chart-vitalidad'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        data,
+        backgroundColor: data.map(colorFor),
+        borderRadius: 2,
+        barThickness: 'flex',
+        maxBarThickness: 32
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      indexAxis: 'y',
+      scales: {
+        x: { beginAtZero: true, max: 100,
+          ticks: { callback: v => v + '%', color: COLORS.inkSoft, font: { family: 'Inter', size: 11 }},
+          grid: { color: COLORS.line, drawBorder: false }
+        },
+        y: { ticks: { color: COLORS.ink, font: { family: 'Inter', size: 12 }},
+             grid: { display: false, drawBorder: false }}
+      },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: COLORS.ink,
+          callbacks: {
+            label: c => 'Vitalidad: ' + c.parsed.x + '%',
+            afterLabel: c => {
+              const v = c.parsed.x;
+              if (v < 35) return 'Crítico (<35%)';
+              if (v < 75) return 'Medio (35–75%)';
+              return 'Óptimo (≥75%)';
+            }
+          }
+        }
+      }
+    }
+  });
 }
 
 function gaugeHTML(label, value) {
