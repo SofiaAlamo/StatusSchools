@@ -221,6 +221,62 @@
 
   .hidden { display: none !important; }
 
+  /* ============== BOTÓN EXPORTAR ============== */
+  .export-btn {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    padding: 9px 18px;
+    border-radius: var(--radius);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity .15s;
+    white-space: nowrap;
+  }
+  .export-btn:hover { opacity: 0.85; }
+
+  /* ============== PRINT ============== */
+  @media print {
+    /* Ocultar lo que no va al PDF */
+    .filters, .logo-bar, .export-btn, #comentario-box { display: none !important; }
+
+    /* Reset de página */
+    * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+    body { background: #fff !important; font-size: 11px; }
+    .shell { padding: 12px !important; max-width: 100% !important; }
+
+    /* Header compacto */
+    header.top { margin-bottom: 12px !important; padding-bottom: 12px !important; }
+    .brand { font-size: 22px !important; }
+
+    /* Grid: dos columnas en print */
+    .grid { grid-template-columns: repeat(2, 1fr) !important; gap: 12px !important; }
+    .card.span-12 { grid-column: span 2 !important; }
+    .card.span-6  { grid-column: span 1 !important; }
+    .card.span-8  { grid-column: span 1 !important; }
+    .card.span-4  { grid-column: span 1 !important; }
+    .card { padding: 12px 14px !important; break-inside: avoid; }
+
+    /* Gráficos — altura fija para que entren */
+    .chart-wrap { min-height: 200px !important; height: 200px !important; }
+
+    /* Tablas — sin overflow, todas las filas visibles */
+    [style*="overflow-x"] { overflow: visible !important; }
+    .ranking-table th, .ranking-table td { font-size: 10px !important; padding: 5px 7px !important; }
+    .heatmap-table th, .heatmap-table td { font-size: 10px !important; padding: 5px 7px !important; }
+
+    /* Semáforo dots en print */
+    .sem-dot { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+    .sem-stack-bar > span { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+
+    /* Salto de página antes de las tablas grandes */
+    #tbl-colegios { page-break-before: always; }
+  }
+
   .comentario-box {
     background: var(--bg-card);
     border: 1px solid var(--line);
@@ -258,9 +314,15 @@
   </div>
   <header class="top">
     <div><h1 class="brand">Status <em>consolidado</em> — implementación regional</h1></div>
-    <div class="meta">
-      <div><span class="dot"></span>Datos en vivo desde Google Sheets</div>
-      <div id="meta-updated">Actualizando…</div>
+    <div style="display:flex;align-items:flex-end;gap:16px;flex-wrap:wrap;">
+      <div class="meta">
+        <div><span class="dot"></span>Datos en vivo desde Google Sheets</div>
+        <div id="meta-updated">Actualizando…</div>
+      </div>
+      <button class="export-btn" onclick="exportarPDF()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Exportar PDF
+      </button>
     </div>
   </header>
 
@@ -654,6 +716,32 @@ function render() {
   renderHeat('heat-docentes', rows, 'docentesPLD');
   renderRanking(rows);
   renderColegios(rows);
+}
+
+function exportarPDF() {
+  // Título dinámico con los filtros activos
+  const partes = [];
+  const p  = document.getElementById('f-pais').value;
+  const om = document.getElementById('f-opmode').value;
+  const rd = document.getElementById('f-red').value;
+  const ca = document.getElementById('f-calendario').value;
+  const m  = document.getElementById('f-mentor').value;
+  const c  = document.getElementById('f-colegio').value.trim();
+  if (om !== '__all__') partes.push(om);
+  if (p  !== '__all__') partes.push(p);
+  if (rd !== '__all__') partes.push(rd);
+  if (ca !== '__all__') partes.push(ca);
+  if (m  !== '__all__') partes.push(m);
+  if (c)                partes.push(c);
+
+  const titulo = partes.length
+    ? 'Dashboard — ' + partes.join(' · ')
+    : 'Dashboard — Status consolidado';
+
+  const prevTitle = document.title;
+  document.title = titulo;
+  window.print();
+  document.title = prevTitle;
 }
 
 function repoblarColegios() {
